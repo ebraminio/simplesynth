@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MidiSynthesizerService extends MidiDeviceService {
-    private static String TAG = MidiSynthesizerService.class.getName();
+    private static String TAG = "MidiSynthesizerService";
 
     private MidiDriver mMidiSynthesizer = new MidiDriver();
     private MidiManager mMidiManager;
@@ -92,9 +92,9 @@ public class MidiSynthesizerService extends MidiDeviceService {
             byte command = (byte) (msg[0] & STATUS_COMMAND_MASK);
             if (command == STATUS_CONTROL_CHANGE) {
                 StringBuilder sb = new StringBuilder();
-                for (byte b : msg) {
+                for (byte b : msg)
                     sb.append(String.format("%02X ", b));
-                }
+
                 Log.i(TAG, "Special command: " + sb.toString());
             }
         }
