@@ -1,9 +1,5 @@
 package com.byagowi.simplesynth;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.media.midi.MidiDevice.MidiConnection;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiDeviceInfo.PortInfo;
@@ -14,10 +10,8 @@ import android.media.midi.MidiManager;
 import android.media.midi.MidiReceiver;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
-import org.billthefarmer.mididriver.GeneralMidiConstants;
 import org.billthefarmer.mididriver.MidiConstants;
 import org.billthefarmer.mididriver.MidiDriver;
 
@@ -29,11 +23,8 @@ import java.util.Map;
 public class MidiSynthesizerService extends MidiDeviceService {
     private static String TAG = "MidiSynthesizerService";
 
-    public static String INSTRUMENT_CHANGE_MSG = "instrument-change";
-    public static String CHANNEL_ID_MSG_FIELD = "channelId";
-    public static String SELECTED_INSTRUMENT_MSG_FIELD = "selectedInstrument";
-
     private MidiDriver mMidiSynthesizer;
+    private static MidiDriver staticSynthesizerHolder;
     private MidiManager mMidiManager;
     private MidiInputPort mSynthesizerInputPort;
     private Map<PortInfo, MidiConnection> openConnections = new HashMap<>();
@@ -43,17 +34,7 @@ public class MidiSynthesizerService extends MidiDeviceService {
         super.onCreate();
         mMidiSynthesizer = new MidiDriver();
         mMidiSynthesizer.setOnMidiStartListener(() -> {
-            LocalBroadcastManager localBroadcast =
-                    LocalBroadcastManager.getInstance(getApplicationContext());
-            localBroadcast.registerReceiver(new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    byte[] msg = new byte[] {
-                            (byte)(0xC0 + intent.getIntExtra(CHANNEL_ID_MSG_FIELD, 0)),
-                            (byte)intent.getIntExtra(SELECTED_INSTRUMENT_MSG_FIELD, 0) };
-                    mMidiSynthesizer.write(msg);
-                }
-            }, new IntentFilter(INSTRUMENT_CHANGE_MSG));
+            staticSynthesizerHolder = mMidiSynthesizer;
         });
         mMidiSynthesizer.start();
 
@@ -86,6 +67,10 @@ public class MidiSynthesizerService extends MidiDeviceService {
                 }
             }, new Handler(Looper.getMainLooper()));
         }, null);
+    }
+
+    public static void write(byte[] msg) {
+        if (staticSynthesizerHolder != null) staticSynthesizerHolder.write(msg);
     }
 
     private void connectedDeviceToSynth(MidiDeviceInfo info) {
