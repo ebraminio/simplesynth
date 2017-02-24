@@ -1,5 +1,6 @@
 package com.byagowi.simplesynth;
 
+import android.media.midi.MidiDevice;
 import android.media.midi.MidiDevice.MidiConnection;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiDeviceInfo.PortInfo;
@@ -28,6 +29,7 @@ public class MidiSynthesizerService extends MidiDeviceService {
     private MidiManager mMidiManager;
     private MidiInputPort mSynthesizerInputPort;
     private Map<PortInfo, MidiConnection> openConnections = new HashMap<>();
+    private Map<MidiDeviceInfo, MidiDevice> openDevices = new HashMap<>();
 
     @Override
     public void onCreate() {
@@ -56,13 +58,32 @@ public class MidiSynthesizerService extends MidiDeviceService {
 
                 @Override
                 public void onDeviceRemoved(MidiDeviceInfo info) {
-                    if (openConnections.containsKey(info)) {
+                    if (info.getInputPortCount() == 0) return;
+
+                    for (PortInfo portInfo : info.getPorts()) {
+                        if (portInfo.getType() == PortInfo.TYPE_INPUT) {
+                            if (openConnections.containsKey(portInfo)) {
+                                MidiConnection conn = openConnections.get(portInfo);
+                                try {
+                                    conn.close();
+                                } catch (IOException e) {
+                                    Log.e(TAG, "Failed on closing connection: " + openConnections);
+                                    e.printStackTrace();
+                                }
+                                openConnections.remove(portInfo);
+                            }
+                        }
+                    }
+
+                    if (openDevices.containsKey(info)) {
+                        MidiDevice device = openDevices.get(info);
                         try {
-                            openConnections.get(info).close();
+                            device.close();
                         } catch (IOException e) {
+                            Log.e(TAG, "Failed on closing device: " + device);
                             e.printStackTrace();
                         }
-                        openConnections.remove(info);
+                        openDevices.remove(info);
                     }
                 }
             }, new Handler(Looper.getMainLooper()));
@@ -74,7 +95,11 @@ public class MidiSynthesizerService extends MidiDeviceService {
     }
 
     private void connectedDeviceToSynth(MidiDeviceInfo info) {
+        if (info.getInputPortCount() == 0) return;
+
         mMidiManager.openDevice(info, device -> {
+            openDevices.put(info, device);
+
             for (PortInfo p : info.getPorts())
                 if (p.getType() == PortInfo.TYPE_INPUT) {
                     MidiConnection midiConnection =
