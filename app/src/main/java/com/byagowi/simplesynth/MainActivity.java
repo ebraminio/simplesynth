@@ -3,6 +3,7 @@ package com.byagowi.simplesynth;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -11,33 +12,42 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
+    public static final String TAG = "MainActivity";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         startService(new Intent(this, MidiSynthesizerService.class));
-        LinearLayout ll = (LinearLayout) findViewById(R.id.instruments);
+        LinearLayout parentLayout = (LinearLayout) findViewById(R.id.instruments);
+
+        ArrayAdapter<String> instrumentsListAdapter =
+                new ArrayAdapter<>(this, R.layout.instruments_select_item, INSTRUMENTS);
 
         for (int i = 0; i < 16; ++i) {
+            LinearLayout ll = new LinearLayout(this);
+            ll.setOrientation(LinearLayout.HORIZONTAL);
+            parentLayout.addView(ll);
+
             TextView tv = new TextView(this);
             int channelId = i;
             tv.setText("Channel " + (channelId + 1) + ":");
             ll.addView(tv);
 
-            Spinner s = new Spinner(this);
-            s.setAdapter(new ArrayAdapter<>(this, R.layout.instruments_select_item, INSTRUMENTS));
-
-            if (channelId == 9) { // 10th channel is dedicated to music box
-                s.setSelection(10);
-                s.setEnabled(false);
+            if (channelId == 9) {
+                tv.setText("Channel 10, dedicated to effects");
+                tv.setEnabled(false);
+                continue;
             }
 
+            Spinner s = new Spinner(this);
+            s.setAdapter(instrumentsListAdapter);
             s.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                 @Override
                 public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
                     MidiSynthesizerService
-                            .write(new byte[] { (byte)(0xC0 + channelId), (byte)position });
+                            .write(new byte[] { (byte)(0xC0 + channelId), (byte)(position - 1) });
                 }
 
                 @Override
