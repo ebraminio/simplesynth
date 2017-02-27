@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
 
             byte[] msg = new byte[2];
             msg[0] = (byte) (PROGRAM_CHANGE + channelId);
-            msg[1] = (byte) position;
+            msg[1] = (byte) (position - 1);
             MidiSynthesizerService.write(msg);
         }
 

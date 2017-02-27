@@ -1,5 +1,6 @@
 package com.byagowi.simplesynth;
 
+import android.media.midi.MidiDevice;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiDeviceInfo.PortInfo;
 import android.media.midi.MidiDeviceService;
@@ -38,23 +39,27 @@ public class MidiSynthesizerService extends MidiDeviceService {
 
         mMidiManager = (MidiManager) getSystemService(MIDI_SERVICE);
         MidiDeviceInfo synthesizerDeviceInfo = getDeviceInfo();
-        mMidiManager.openDevice(synthesizerDeviceInfo, destinationDevice -> {
-            mSynthesizerInputPort = destinationDevice.openInputPort(0);
+        mMidiManager.openDevice(synthesizerDeviceInfo, new MidiManager.OnDeviceOpenedListener() {
+            @Override
+            public void onDeviceOpened(MidiDevice destinationDevice) {
+                mSynthesizerInputPort = destinationDevice.openInputPort(0);
 
-            for (MidiDeviceInfo info : mMidiManager.getDevices())
-                if (info.getId() != synthesizerDeviceInfo.getId())
-                    connectedDeviceToSynth(info);
+                for (MidiDeviceInfo info : mMidiManager.getDevices())
+                    if (info.getId() != synthesizerDeviceInfo.getId())
+                        MidiSynthesizerService.this.connectedDeviceToSynth(info);
 
-            mMidiManager.registerDeviceCallback(new MidiManager.DeviceCallback() {
-                @Override
-                public void onDeviceAdded(MidiDeviceInfo info) {
-                    Log.i(TAG, "new device added");
-                    connectedDeviceToSynth(info);
-                }
+                mMidiManager.registerDeviceCallback(new MidiManager.DeviceCallback() {
+                    @Override
+                    public void onDeviceAdded(MidiDeviceInfo info) {
+                        Log.i(TAG, "new device added");
+                        connectedDeviceToSynth(info);
+                    }
 
-                @Override
-                public void onDeviceRemoved(MidiDeviceInfo info) { }
-            }, new Handler(Looper.getMainLooper()));
+                    @Override
+                    public void onDeviceRemoved(MidiDeviceInfo info) {
+                    }
+                }, new Handler(Looper.getMainLooper()));
+            }
         }, null);
     }
 
@@ -65,11 +70,14 @@ public class MidiSynthesizerService extends MidiDeviceService {
     private void connectedDeviceToSynth(MidiDeviceInfo info) {
         if (info.getInputPortCount() == 0) return;
 
-        mMidiManager.openDevice(info, device -> {
-            for (PortInfo p : info.getPorts())
-                if (p.getType() == PortInfo.TYPE_INPUT) {
-                    device.connectPorts(mSynthesizerInputPort, p.getPortNumber());
-                }
+        mMidiManager.openDevice(info, new MidiManager.OnDeviceOpenedListener() {
+            @Override
+            public void onDeviceOpened(MidiDevice device) {
+                for (PortInfo p : info.getPorts())
+                    if (p.getType() == PortInfo.TYPE_INPUT) {
+                        device.connectPorts(mSynthesizerInputPort, p.getPortNumber());
+                    }
+            }
         }, null);
     }
 
