@@ -26,36 +26,89 @@ public class MainActivity extends Activity {
                 new ArrayAdapter<>(this, R.layout.instruments_select_item, INSTRUMENTS);
 
         for (int i = 0; i < 16; ++i) {
+            int channelId = i;
+
             LinearLayout ll = new LinearLayout(this);
             ll.setOrientation(LinearLayout.HORIZONTAL);
             parentLayout.addView(ll);
 
-            TextView tv = new TextView(this);
-            int channelId = i;
-            tv.setText("Channel " + (channelId + 1) + ":");
-            ll.addView(tv);
+            TextView cMajor = new TextView(this);
+            cMajor.setText("C");
+            cMajor.setOnClickListener(v -> playChord(channelId, 48, 52, 55));
+            cMajor.setPadding(0, 0, 5, 0);
+            cMajor.setTextSize(25);
+            ll.addView(cMajor);
+
+            TextView gMajor = new TextView(this);
+            gMajor.setText("G");
+            gMajor.setOnClickListener(v -> playChord(channelId, 55, 59, 62));
+            gMajor.setPadding(5, 0, 10, 0);
+            gMajor.setTextSize(25);
+            ll.addView(gMajor);
+
+            TextView channelText = new TextView(this);
+            channelText.setText("Channel " + (channelId + 1) + ":");
+            ll.addView(channelText);
 
             if (channelId == 9) {
-                tv.setText("Channel 10, dedicated to effects");
-                tv.setEnabled(false);
-                continue;
+                channelText.setText("Channel 10, dedicated to effects");
+                channelText.setEnabled(false);
+            } else {
+                channelText.setTextSize(10);
+
+                Spinner s = new Spinner(this);
+                s.setAdapter(instrumentsListAdapter);
+                s.setOnItemSelectedListener(new ProgramChangeClickListener(channelId));
+
+                ll.addView(s);
             }
-
-            Spinner s = new Spinner(this);
-            s.setAdapter(instrumentsListAdapter);
-            s.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
-                    MidiSynthesizerService
-                            .write(new byte[] { (byte)(0xC0 + channelId), (byte)(position - 1) });
-                }
-
-                @Override
-                public void onNothingSelected(AdapterView<?> parent) { }
-            });
-
-            ll.addView(s);
         }
+    }
+
+    public static final int NOTE_OFF = 0x80;
+    public static final int NOTE_ON = 0x90;
+
+    private void playChord(int channelId, int... notes) {
+        Log.d(TAG, "chord play issued");
+        new Thread(() -> {
+            try {
+                byte[] msg = new byte[3];
+                for (int note : notes) {
+                    msg[0] = (byte) (NOTE_ON + channelId); // NOTE_ON
+                    msg[1] = (byte) note;
+                    msg[2] = (byte) 127;
+                    MidiSynthesizerService.write(msg);
+                    Thread.sleep(200);
+                    msg[0] = (byte) (NOTE_OFF + channelId); // NOTE_OFF
+                    msg[1] = (byte) note;
+                    msg[2] = (byte) 0;
+                    MidiSynthesizerService.write(msg);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    public static final int PROGRAM_CHANGE = 0xC0;
+
+    private static class ProgramChangeClickListener implements AdapterView.OnItemSelectedListener {
+        private final int channelId;
+
+        ProgramChangeClickListener(int channelId) { this.channelId = channelId; }
+
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            Log.d(TAG, "program change issued");
+
+            byte[] msg = new byte[2];
+            msg[0] = (byte) (PROGRAM_CHANGE + channelId);
+            msg[1] = (byte) position;
+            MidiSynthesizerService.write(msg);
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) { }
     }
 
     public static final String[] INSTRUMENTS = new String[]{"Acoustic Grand Piano",
@@ -83,4 +136,5 @@ public class MainActivity extends Activity {
             "Shanai", "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock", "Taiko Drum",
             "Melodic Tom", "Synth Drum", "Reverse Cymbal", "Guitar Fret Noise", "Breath Noise",
             "Seashore", "Bird Tweet", "Telephone Ring", "Helicopter", "Applause", "Gunshot"};
+
 }

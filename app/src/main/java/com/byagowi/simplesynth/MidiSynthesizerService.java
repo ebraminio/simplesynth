@@ -11,7 +11,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import org.billthefarmer.mididriver.MidiConstants;
 import org.billthefarmer.mididriver.MidiDriver;
 
 import java.io.IOException;
@@ -29,8 +28,11 @@ public class MidiSynthesizerService extends MidiDeviceService {
     public void onCreate() {
         super.onCreate();
         mMidiSynthesizer = new MidiDriver();
-        mMidiSynthesizer.setOnMidiStartListener(() -> {
-            staticSynthesizerHolder = mMidiSynthesizer;
+        mMidiSynthesizer.setOnMidiStartListener(new MidiDriver.OnMidiStartListener() {
+            @Override
+            public void onMidiStart() {
+                staticSynthesizerHolder = mMidiSynthesizer;
+            }
         });
         mMidiSynthesizer.start();
 
@@ -71,15 +73,16 @@ public class MidiSynthesizerService extends MidiDeviceService {
         }, null);
     }
 
-    public static final byte STATUS_COMMAND_MASK = (byte) 0xF0;
-    public static final byte STATUS_CHANNEL_MASK = (byte) 0x0F;
-
     String formatBytesToString(byte[] data) {
         StringBuilder sb = new StringBuilder();
         for (byte b : data)
             sb.append(String.format("%02X ", b));
         return sb.toString();
     }
+
+    public static final byte COMMAND_MASK = (byte) 0xF0;
+    public static final byte CHANNEL_MASK = (byte) 0x0F;
+    public static final byte CONTROL_CHANGE = (byte) 0xB0;
 
     private MidiReceiver[] mMidiReceivers = new MidiReceiver[]{new MidiReceiver() {
         @Override
@@ -89,8 +92,8 @@ public class MidiSynthesizerService extends MidiDeviceService {
             byte[] msg = Arrays.copyOfRange(data, offset, offset + count);
             mMidiSynthesizer.write(msg);
 
-            byte command = (byte) (msg[0] & STATUS_COMMAND_MASK);
-            if (command == MidiConstants.CONTROL_CHANGE)
+            byte command = (byte) (msg[0] & COMMAND_MASK);
+            if (command == CONTROL_CHANGE)
                 Log.i(TAG, "Special command: " + formatBytesToString(msg));
         }
     }};
